@@ -19,6 +19,8 @@ from __future__ import annotations
 import argparse
 import os
 import random
+import socket
+import sqlite3
 import time
 import uuid
 from datetime import datetime
@@ -41,6 +43,7 @@ USE_TORCH_COMPILE = os.getenv("USE_TORCH_COMPILE", "0") == "1"
 ENABLE_CPU_OFFLOAD = os.getenv("ENABLE_CPU_OFFLOAD", "0") == "1"
 DEMO_PORT = int(os.getenv("DEMO_PORT", "15432"))
 os.environ["GRADIO_EXAMPLES_CACHE"] = "./.gradio/cache"
+COUNTER_DB = os.getenv("COUNTER_DB", ".count.db")
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -109,36 +112,43 @@ DEFAULT_STYLE_NAME = "(No style)"
 SCHEDULE_NAME = ["Flow_DPM_Solver"]
 DEFAULT_SCHEDULE_NAME = "Flow_DPM_Solver"
 NUM_IMAGES_PER_PROMPT = 1
-TEST_TIMES = 0
 INFER_SPEED = 0
-FILENAME = f"output/port{DEMO_PORT}_inference_count.txt"
+
+
+def norm_ip(img, low, high):
+    img.clamp_(min=low, max=high)
+    img.sub_(low).div_(max(high - low, 1e-5))
+    return img
+
+
+def open_db():
+    db = sqlite3.connect(COUNTER_DB)
+    db.execute("CREATE TABLE IF NOT EXISTS counter(app CHARS PRIMARY KEY UNIQUE, value INTEGER)")
+    db.execute('INSERT OR IGNORE INTO counter(app, value) VALUES("Sana", 0)')
+    return db
 
 
 def read_inference_count():
-    global TEST_TIMES
-    try:
-        with open(FILENAME) as f:
-            count = int(f.read().strip())
-    except FileNotFoundError:
-        count = 0
-    TEST_TIMES = count
-
-    return count
+    with open_db() as db:
+        cur = db.execute('SELECT value FROM counter WHERE app="Sana"')
+        db.commit()
+    return cur.fetchone()[0]
 
 
 def write_inference_count(count):
-    with open(FILENAME, "w") as f:
-        f.write(str(count))
+    count = max(0, int(count))
+    with open_db() as db:
+        db.execute(f'UPDATE counter SET value=value+{count} WHERE app="Sana"')
+        db.commit()
 
 
 def run_inference(num_imgs=1):
-    TEST_TIMES = read_inference_count()
-    TEST_TIMES += int(num_imgs)
-    write_inference_count(TEST_TIMES)
+    write_inference_count(num_imgs)
+    count = read_inference_count()
 
     return (
         f"<span style='font-size: 16px; font-weight: bold;'>Total inference runs: </span><span style='font-size: "
-        f"16px; color:red; font-weight: bold;'>{TEST_TIMES}</span>"
+        f"16px; color:red; font-weight: bold;'>{count}</span>"
     )
 
 
@@ -175,6 +185,7 @@ def get_args():
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--step", default=-1, type=int)
     parser.add_argument("--custom_image_size", default=None, type=int)
+    parser.add_argument("--share", action="store_true")
     parser.add_argument(
         "--shield_model_path",
         type=str,
@@ -238,12 +249,12 @@ def generate(
     flow_dpms_inference_steps: int = 20,
     randomize_seed: bool = False,
 ):
-    global TEST_TIMES
     global INFER_SPEED
     # seed = 823753551
+    box = run_inference(num_imgs)
     seed = int(randomize_seed_fn(seed, randomize_seed))
     generator = torch.Generator(device=device).manual_seed(seed)
-    print(f"PORT: {DEMO_PORT}, model_path: {model_path}, time_times: {TEST_TIMES}")
+    print(f"PORT: {DEMO_PORT}, model_path: {model_path}")
     if safety_check.is_dangerous(safety_checker_tokenizer, safety_checker_model, prompt, threshold=0.2):
         prompt = "A red heart."
 
@@ -280,13 +291,19 @@ def generate(
         img = [save_image_sana(img, seed, save_img=save_image) for img in images]
         print(img)
     else:
-        if num_imgs > 1:
-            nrow = 2
-        else:
-            nrow = 1
-        img = make_grid(images, nrow=nrow, normalize=True, value_range=(-1, 1))
-        img = img.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to("cpu", torch.uint8).numpy()
-        img = [Image.fromarray(img.astype(np.uint8))]
+        img = [
+            Image.fromarray(
+                norm_ip(img, -1, 1)
+                .mul(255)
+                .add_(0.5)
+                .clamp_(0, 255)
+                .permute(1, 2, 0)
+                .to("cpu", torch.uint8)
+                .numpy()
+                .astype(np.uint8)
+            )
+            for img in images
+        ]
 
     torch.cuda.empty_cache()
 
@@ -294,11 +311,11 @@ def generate(
         img,
         seed,
         f"<span style='font-size: 16px; font-weight: bold;'>Inference Speed: {INFER_SPEED:.3f} s/Img</span>",
+        box,
     )
 
 
-TEST_TIMES = read_inference_count()
-model_size = "1.6" if "D20" in args.model_path else "0.6"
+model_size = "1.6" if "1600M" in args.model_path else "0.6"
 title = f"""
     <div style='display: flex; align-items: center; justify-content: center; text-align: center;'>
         <img src="https://raw.githubusercontent.com/NVlabs/Sana/refs/heads/main/asset/logo.png" width="50%" alt="logo"/>
@@ -308,7 +325,7 @@ DESCRIPTION = f"""
         <p><span style="font-size: 36px; font-weight: bold;">Sana-{model_size}B</span><span style="font-size: 20px; font-weight: bold;">{args.image_size}px</span></p>
         <p style="font-size: 16px; font-weight: bold;">Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer</p>
         <p><span style="font-size: 16px;"><a href="https://arxiv.org/abs/2410.10629">[Paper]</a></span> <span style="font-size: 16px;"><a href="https://github.com/NVlabs/Sana">[Github(coming soon)]</a></span> <span style="font-size: 16px;"><a href="https://nvlabs.github.io/Sana">[Project]</a></span</p>
-        <p style="font-size: 16px; font-weight: bold;">Powered by <a href="https://hanlab.mit.edu/projects/dc-ae">DC-AE</a> with 32x latent space</p>, running on A6000 node.
+        <p style="font-size: 16px; font-weight: bold;">Powered by <a href="https://hanlab.mit.edu/projects/dc-ae">DC-AE</a> with 32x latent space, </p>running on node {socket.gethostname()}.
         <p style="font-size: 16px; font-weight: bold;">Unsafe word will give you a 'Red Heart' in the image instead.</p>
         """
 if model_size == "0.6":
@@ -334,9 +351,9 @@ css = """
 .gradio-container{max-width: 640px !important}
 h1{text-align:center}
 """
-with gr.Blocks(css=css) as demo:
+with gr.Blocks(css=css, title="Sana") as demo:
     gr.Markdown(title)
-    gr.Markdown(DESCRIPTION)
+    gr.HTML(DESCRIPTION)
     gr.DuplicateButton(
         value="Duplicate Space for private use",
         elem_id="duplicate-button",
@@ -442,8 +459,6 @@ with gr.Blocks(css=css) as demo:
                     value=1,
                 )
 
-    run_button.click(fn=run_inference, inputs=num_imgs, outputs=info_box)
-
     gr.Examples(
         examples=examples,
         inputs=prompt,
@@ -480,9 +495,9 @@ with gr.Blocks(css=css) as demo:
             flow_dpms_inference_steps,
             randomize_seed,
         ],
-        outputs=[result, seed, speed_box],
+        outputs=[result, seed, speed_box, info_box],
         api_name="run",
     )
 
 if __name__ == "__main__":
-    demo.queue(max_size=20).launch(server_name="0.0.0.0", server_port=DEMO_PORT, debug=True, share=True)
+    demo.queue(max_size=20).launch(server_name="0.0.0.0", server_port=DEMO_PORT, debug=False, share=args.share)

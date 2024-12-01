@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore")  # ignore warning
 
 from asset.examples import examples
 from diffusion import DPMS, FlowEuler, SASolverSampler
-from diffusion.data.datasets.utils import *
+from diffusion.data.datasets.utils import ASPECT_RATIO_512_TEST, ASPECT_RATIO_1024_TEST, ASPECT_RATIO_2048_TEST
 from diffusion.model.builder import build_model, get_tokenizer_and_text_encoder, get_vae, vae_decode
 from diffusion.model.utils import prepare_prompt_ar, resize_and_crop_tensor
 from diffusion.utils.config import SanaConfig
@@ -165,7 +165,7 @@ def generate_img(
 
     n = len(prompts)
     latent_size_h, latent_size_w = height // config.vae.vae_downsample_rate, width // config.vae.vae_downsample_rate
-    z = torch.randn(n, config.vae.vae_latent_dim, latent_size_h, latent_size_w, device=device, dtype=weight_dtype)
+    z = torch.randn(n, config.vae.vae_latent_dim, latent_size_h, latent_size_w, device=device)
     model_kwargs = dict(data_info={"img_hw": (latent_size_h, latent_size_w), "aspect_ratio": 1.0}, mask=emb_masks)
     print(f"Latent Size: {z.shape}")
     # Sample images:

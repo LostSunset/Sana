@@ -1,4 +1,8 @@
 # Sana related files
+*_dev.py
+*_dev.sh
+.count.db
+.gradio/
 .idea/
 *.png
 *.json

@@ -34,7 +34,12 @@ from tqdm import tqdm
 warnings.filterwarnings("ignore")  # ignore warning
 
 from diffusion import DPMS, FlowEuler, SASolverSampler
-from diffusion.data.datasets.utils import *
+from diffusion.data.datasets.utils import (
+    ASPECT_RATIO_512_TEST,
+    ASPECT_RATIO_1024_TEST,
+    ASPECT_RATIO_2048_TEST,
+    get_chunks,
+)
 from diffusion.model.builder import build_model, get_tokenizer_and_text_encoder, get_vae, vae_decode
 from diffusion.model.utils import prepare_prompt_ar
 from diffusion.utils.config import SanaConfig
@@ -117,7 +122,12 @@ def visualize(items, bs, sample_steps, cfg_scale, pag_scale=1.0):
                 with torch.no_grad():
                     n = len(prompts)
                     z = torch.randn(
-                        n, config.vae.vae_latent_dim, latent_size, latent_size, device=device, generator=generator
+                        n,
+                        config.vae.vae_latent_dim,
+                        latent_size,
+                        latent_size,
+                        device=device,
+                        generator=generator,
                     )
                     model_kwargs = dict(data_info={"img_hw": hw, "aspect_ratio": ar}, mask=emb_masks)
 
@@ -432,6 +442,7 @@ if __name__ == "__main__":
         save_root = create_save_root(args, dataset, epoch_name, step_name, sample_steps, guidance_type)
         os.makedirs(save_root, exist_ok=True)
         if args.if_save_dirname and args.gpu_id == 0:
+            os.makedirs(f"{work_dir}/metrics", exist_ok=True)
             # save at work_dir/metrics/tmp_dpg_xxx.txt for metrics testing
             with open(f"{work_dir}/metrics/tmp_{dataset}_{time.time()}.txt", "w") as f:
                 print(f"save tmp file at {work_dir}/metrics/tmp_{dataset}_{time.time()}.txt")

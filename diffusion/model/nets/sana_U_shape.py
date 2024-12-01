@@ -23,7 +23,6 @@ from timm.models.layers import DropPath
 
 from diffusion.model.builder import MODELS
 from diffusion.model.nets.basic_modules import DWMlp, GLUMBConv, MBConvPreGLU, Mlp
-from diffusion.model.nets.fastlinear.modules import TritonLiteMLA
 from diffusion.model.nets.sana import Sana, get_2d_sincos_pos_embed
 from diffusion.model.nets.sana_blocks import (
     Attention,
@@ -37,8 +36,15 @@ from diffusion.model.nets.sana_blocks import (
     t2i_modulate,
 )
 from diffusion.model.norms import RMSNorm
-from diffusion.model.utils import auto_grad_checkpoint, to_2tuple
+from diffusion.model.utils import auto_grad_checkpoint
+from diffusion.utils.import_utils import is_triton_module_available
 from diffusion.utils.logger import get_root_logger
+
+_triton_modules_available = False
+if is_triton_module_available():
+    from diffusion.model.nets.fastlinear.modules import TritonLiteMLA
+
+    _triton_modules_available = True
 
 
 class SanaUBlock(nn.Module):
@@ -77,6 +83,10 @@ class SanaUBlock(nn.Module):
             self_num_heads = hidden_size // 32
             self.attn = LiteLA(hidden_size, hidden_size, heads=self_num_heads, eps=1e-8, qk_norm=qk_norm)
         elif attn_type == "triton_linear":
+            if not _triton_modules_available:
+                raise ValueError(
+                    f"{attn_type} type is not available due to _triton_modules_available={_triton_modules_available}."
+                )
             # linear self attention with triton kernel fusion
             # TODO: Here the num_heads set to 36 for tmp used
             self_num_heads = hidden_size // 32
@@ -343,27 +353,27 @@ class SanaU(Sana):
 #                                 SanaU Configs                                 #
 #################################################################################
 @MODELS.register_module()
-def SanaMSU_600M_P1_D28(**kwargs):
+def SanaU_600M_P1_D28(**kwargs):
     return SanaU(depth=28, hidden_size=1152, patch_size=1, num_heads=16, **kwargs)
 
 
 @MODELS.register_module()
-def SanaMSU_600M_P2_D28(**kwargs):
+def SanaU_600M_P2_D28(**kwargs):
     return SanaU(depth=28, hidden_size=1152, patch_size=2, num_heads=16, **kwargs)
 
 
 @MODELS.register_module()
-def SanaMSU_600M_P4_D28(**kwargs):
+def SanaU_600M_P4_D28(**kwargs):
     return SanaU(depth=28, hidden_size=1152, patch_size=4, num_heads=16, **kwargs)
 
 
 @MODELS.register_module()
-def SanaMSU_P1_D20(**kwargs):
+def SanaU_1600M_P1_D20(**kwargs):
     # 20 layers, 1648.48M
     return SanaU(depth=20, hidden_size=2240, patch_size=1, num_heads=20, **kwargs)
 
 
 @MODELS.register_module()
-def SanaMSU_P2_D20(**kwargs):
+def SanaU_1600M_P2_D20(**kwargs):
     # 28 layers, 1648.48M
     return SanaU(depth=20, hidden_size=2240, patch_size=2, num_heads=20, **kwargs)
