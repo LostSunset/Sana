@@ -88,12 +88,16 @@ class SanaImgDataset(torch.utils.data.Dataset):
         self.logger.info(f"Loading external caption json from: original_filename{external_caption_suffixes}.json")
         self.logger.info(f"Loading external clipscore json from: original_filename{external_clipscore_suffixes}.json")
         self.logger.info(f"external caption clipscore threshold: {clip_thr}, temperature: {clip_thr_temperature}")
-        self.logger.info(f"T5 max token length: {self.max_length}")
+        self.logger.info(f"Text max token length: {self.max_length}")
 
     def getdata(self, idx):
         data = self.dataset[idx]
+        img_extensions = [".jpg", ".png", ".jpeg", ".webp"]
+        filename, ext = os.path.splitext(data)
+        if ext in img_extensions:
+            data = filename
+            self.img_extension = ext
         self.key = data.split("/")[-1]
-        # info = json.load(open(f"{data}.json"))[self.key]
         info = {}
         with open(f"{data}.txt") as f:
             info[self.default_prompt] = f.readlines()[0].strip()
@@ -284,7 +288,7 @@ class SanaWebDataset(torch.utils.data.Dataset):
         self.logger.info(f"Loading external caption json from: original_filename{external_caption_suffixes}.json")
         self.logger.info(f"Loading external clipscore json from: original_filename{external_clipscore_suffixes}.json")
         self.logger.info(f"external caption clipscore threshold: {clip_thr}, temperature: {clip_thr_temperature}")
-        self.logger.info(f"T5 max token length: {self.max_length}")
+        self.logger.info(f"Text max token length: {self.max_length}")
         self.logger.warning(f"Sort the dataset: {sort_dataset}")
 
     def _initialize_dataset(self, num_replicas, sort_dataset):

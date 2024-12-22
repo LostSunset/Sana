@@ -324,7 +324,7 @@ title = f"""
 DESCRIPTION = f"""
         <p><span style="font-size: 36px; font-weight: bold;">Sana-{model_size}B</span><span style="font-size: 20px; font-weight: bold;">{args.image_size}px</span></p>
         <p style="font-size: 16px; font-weight: bold;">Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer</p>
-        <p><span style="font-size: 16px;"><a href="https://arxiv.org/abs/2410.10629">[Paper]</a></span> <span style="font-size: 16px;"><a href="https://github.com/NVlabs/Sana">[Github(coming soon)]</a></span> <span style="font-size: 16px;"><a href="https://nvlabs.github.io/Sana">[Project]</a></span</p>
+        <p><span style="font-size: 16px;"><a href="https://arxiv.org/abs/2410.10629">[Paper]</a></span> <span style="font-size: 16px;"><a href="https://github.com/NVlabs/Sana">[Github]</a></span> <span style="font-size: 16px;"><a href="https://nvlabs.github.io/Sana">[Project]</a></span</p>
         <p style="font-size: 16px; font-weight: bold;">Powered by <a href="https://hanlab.mit.edu/projects/dc-ae">DC-AE</a> with 32x latent space, </p>running on node {socket.gethostname()}.
         <p style="font-size: 16px; font-weight: bold;">Unsafe word will give you a 'Red Heart' in the image instead.</p>
         """
@@ -386,14 +386,14 @@ with gr.Blocks(css=css, title="Sana") as demo:
                     minimum=256,
                     maximum=MAX_IMAGE_SIZE,
                     step=32,
-                    value=1024,
+                    value=args.image_size,
                 )
                 width = gr.Slider(
                     label="Width",
                     minimum=256,
                     maximum=MAX_IMAGE_SIZE,
                     step=32,
-                    value=1024,
+                    value=args.image_size,
                 )
             with gr.Row():
                 flow_dpms_inference_steps = gr.Slider(
@@ -401,21 +401,21 @@ with gr.Blocks(css=css, title="Sana") as demo:
                     minimum=5,
                     maximum=40,
                     step=1,
-                    value=18,
+                    value=20,
                 )
                 flow_dpms_guidance_scale = gr.Slider(
                     label="CFG Guidance scale",
                     minimum=1,
                     maximum=10,
                     step=0.1,
-                    value=5.0,
+                    value=4.5,
                 )
                 flow_dpms_pag_guidance_scale = gr.Slider(
                     label="PAG Guidance scale",
                     minimum=1,
                     maximum=4,
                     step=0.5,
-                    value=2.0,
+                    value=1.0,
                 )
             with gr.Row():
                 use_negative_prompt = gr.Checkbox(label="Use negative prompt", value=False, visible=True)
