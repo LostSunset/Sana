@@ -149,9 +149,9 @@ import torch
 from diffusers import SanaPipeline
 
 pipe = SanaPipeline.from_pretrained(
-    "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
-    variant="fp16",
-    torch_dtype=torch.float16,
+    "Efficient-Large-Model/Sana_1600M_1024px_BF16_diffusers",
+    variant="bf16",
+    torch_dtype=torch.bfloat16,
 )
 pipe.to("cuda")
 
@@ -163,7 +163,7 @@ image = pipe(
     prompt=prompt,
     height=1024,
     width=1024,
-    guidance_scale=5.0,
+    guidance_scale=4.5,
     num_inference_steps=20,
     generator=torch.Generator(device="cuda").manual_seed(42),
 )[0]
@@ -212,7 +212,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 generator = torch.Generator(device=device).manual_seed(42)
 
 sana = SanaPipeline("configs/sana_config/1024ms/Sana_1600M_img1024.yaml")
-sana.from_pretrained("hf://Efficient-Large-Model/Sana_1600M_1024px/checkpoints/Sana_1600M_1024px.pth")
+sana.from_pretrained("hf://Efficient-Large-Model/Sana_1600M_1024px_BF16/checkpoints/Sana_1600M_1024px_BF16.pth")
 prompt = 'a cyberpunk cat with a neon sign that says "Sana"'
 
 image = sana(
