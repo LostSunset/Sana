@@ -36,6 +36,7 @@ As a result, Sana-0.6B is very competitive with modern giant diffusion model (e.
 
 ## 🔥🔥 News
 
+- (🔥 New) \[2025/1/12\] DC-AE tiling makes Sana-4K inferences 4096x4096px images within 22GB GPU memory.[\[Guidance\]](asset/docs/model_zoo.md#-3-4k-models)
 - (🔥 New) \[2025/1/11\] Sana code-base license changed to Apache 2.0.
 - (🔥 New) \[2025/1/10\] Inference Sana with 8bit quantization.[\[Guidance\]](asset/docs/8bit_sana.md#quantization)
 - (🔥 New) \[2025/1/8\] 4K resolution [Sana models](asset/docs/model_zoo.md) is supported in [Sana-ComfyUI](https://github.com/Efficient-Large-Model/ComfyUI_ExtraModels) and [work flow](asset/docs/ComfyUI/Sana_FlowEuler_4K.json) is also prepared. [\[4K guidance\]](asset/docs/ComfyUI/comfyui.md)
@@ -43,7 +44,7 @@ As a result, Sana-0.6B is very competitive with modern giant diffusion model (e.
 - (🔥 New) \[2025/1/2\] Bug in the `diffusers` pipeline is solved. [Solved PR](https://github.com/huggingface/diffusers/pull/10431)
 - (🔥 New) \[2025/1/2\] 2K resolution [Sana models](asset/docs/model_zoo.md) is supported in [Sana-ComfyUI](https://github.com/Efficient-Large-Model/ComfyUI_ExtraModels) and [work flow](asset/docs/ComfyUI/Sana_FlowEuler_2K.json) is also prepared.
 - (🔥 New) \[2024/12/20\] 1.6B 2K resolution [Sana models](asset/docs/model_zoo.md) are released: [\[BF16 pth\]](https://huggingface.co/Efficient-Large-Model/Sana_1600M_2Kpx_BF16) or [\[BF16 diffusers\]](https://huggingface.co/Efficient-Large-Model/Sana_1600M_2Kpx_BF16_diffusers). 🚀 Get your 2K resolution images within 4 seconds! Find more samples in [Sana page](https://nvlabs.github.io/Sana/). Thanks [SUPIR](https://github.com/Fanghua-Yu/SUPIR) for their wonderful work and support.
-- (🔥 New) \[2024/12/18\] `diffusers` supports Sana-LoRA fine-tuning! Sana-LoRA's training and convergence speed is supper fast. [\[Guidance\]](asset/docs/sana_lora_dreambooth.md) or  [\[diffusers docs\]](https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/README_sana.md).
+- (🔥 New) \[2024/12/18\] `diffusers` supports Sana-LoRA fine-tuning! Sana-LoRA's training and convergence speed is super fast. [\[Guidance\]](asset/docs/sana_lora_dreambooth.md) or  [\[diffusers docs\]](https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/README_sana.md).
 - (🔥 New) \[2024/12/13\] `diffusers` has Sana! [All Sana models in diffusers safetensors](https://huggingface.co/collections/Efficient-Large-Model/sana-673efba2a57ed99843f11f9e) are released and diffusers pipeline `SanaPipeline`, `SanaPAGPipeline`, `DPMSolverMultistepScheduler(with FlowMatching)` are all supported now. We prepare a [Model Card](asset/docs/model_zoo.md) for you to choose.
 - (🔥 New) \[2024/12/10\] 1.6B BF16 [Sana model](https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px_BF16) is released for stable fine-tuning.
 - (🔥 New) \[2024/12/9\] We release the [ComfyUI node](https://github.com/Efficient-Large-Model/ComfyUI_ExtraModels) for Sana. [\[Guidance\]](asset/docs/ComfyUI/comfyui.md)
@@ -277,6 +278,8 @@ where each line of [`asset/samples_mini.txt`](asset/samples_mini.txt) contains a
 
 - 32GB VRAM is required for both 0.6B and 1.6B model's training
 
+### 1). Train with image-text pairs in directory
+
 We provide a training example here and you can also select your desired config file from [config files dir](configs/sana_config) based on your data structure.
 
 To launch Sana training, you will first need to prepare data in the following formats. [Here](asset/example_data) is an example for the data structure for reference.
@@ -311,6 +314,26 @@ bash train_scripts/train.sh \
   --model.load_from=hf://Efficient-Large-Model/Sana_1600M_1024px/checkpoints/Sana_1600M_1024px.pth \
   --model.multi_scale=false \
   --train.train_batch_size=8
+```
+
+### 2). Train with image-text pairs in directory
+
+We also provide conversion scripts to convert your data to the required format. You can refer to the [data conversion scripts](asset/data_conversion_scripts) for more details.
+
+```bash
+python tools/convert_ImgDataset_to_WebDatasetMS_format.py
+```
+
+Then Sana's training can be launched via
+
+```bash
+# Example of training Sana 0.6B with 512x512 resolution from scratch
+bash train_scripts/train.sh \
+  configs/sana_config/512ms/Sana_600M_img512.yaml \
+  --data.data_dir="[asset/example_data_tar]" \
+  --data.type=SanaWebDatasetMS \
+  --model.multi_scale=true \
+  --train.train_batch_size=32
 ```
 
 # 💻 4. Metric toolkit
