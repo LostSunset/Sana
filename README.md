@@ -40,6 +40,7 @@ As a result, Sana-0.6B is very competitive with modern giant diffusion models (e
 
 ## 🔥🔥 News
 
+- (🔥 New) \[2025/3/14\] 🏃SANA-Sprint is coming out!🎉 A new one/few-step generator of Sana. 0.1s per 1024px image on H100, 0.3s on RTX 4090. Find out more details: [\[Page\]](https://nvlabs.github.io/Sana/Sprint/) | [\[Arxiv\]](https://arxiv.org/abs/2503.09641). Code is coming very soon along with `diffusers`
 - (🔥 New) \[2025/2/10\] 🚀Sana + ControlNet is released. [\[Guidance\]](asset/docs/sana_controlnet.md) | [\[Model\]](asset/docs/model_zoo.md) | [\[Demo\]](https://nv-sana.mit.edu/ctrlnet/)
 - (🔥 New) \[2025/1/30\] Release CAME-8bit optimizer code. Saving more GPU memory during training. [\[How to config\]](https://github.com/NVlabs/Sana/blob/main/configs/sana_config/1024ms/Sana_1600M_img1024_CAME8bit.yaml#L86)
 - (🔥 New) \[2025/1/29\] 🎉 🎉 🎉**SANA 1.5 is out! Figure out how to do efficient training & inference scaling!** 🚀[\[Tech Report\]](https://arxiv.org/abs/2501.18427)
@@ -47,7 +48,8 @@ As a result, Sana-0.6B is very competitive with modern giant diffusion models (e
 - (🔥 New) \[2025/1/24\] DCAE-1.1 is released, better reconstruction quality. [\[Model\]](https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.1) [\[diffusers\]](https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.1-diffusers)
 - (🔥 New) \[2025/1/23\] **Sana is accepted as Oral by ICLR-2025.** 🎉🎉🎉
 
-______________________________________________________________________
+<details>
+  <summary>Click to show all updates</summary>
 
 - (🔥 New) \[2025/1/12\] DC-AE tiling makes Sana-4K inferences 4096x4096px images within 22GB GPU memory. With model offload and 8bit/4bit quantize. The 4K Sana run within **8GB** GPU VRAM. [\[Guidance\]](asset/docs/model_zoo.md#-3-4k-models)
 - (🔥 New) \[2025/1/11\] Sana code-base license changed to Apache 2.0.
@@ -70,6 +72,8 @@ ______________________________________________________________________
 - \[2024/10\] [DC-AE Code](https://github.com/mit-han-lab/efficientvit/blob/master/applications/dc_ae/README.md) and [weights](https://huggingface.co/collections/mit-han-lab/dc-ae-670085b9400ad7197bb1009b) are released!
 - \[2024/10\] [Paper](https://arxiv.org/abs/2410.10629) is on Arxiv!
 
+</details>
+
 ## Performance
 
 | Methods (1024x1024)                                                                                 | Throughput (samples/s) | Latency (s) | Params (B) | Speedup | FID 👇      | CLIP 👆      | GenEval 👆  | DPG 👆      |
@@ -81,7 +85,7 @@ ______________________________________________________________________
 | **[Sana-1.6B-MultiLing](https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px_MultiLing)** | 1.0                    | 1.2         | 1.6        | 23.3×   | 5.92        | **28.94**    | **0.69**    | <u>84.5</u> |
 
 <details>
-  <summary><h3>Click to show all</h3></summary>
+  <summary><h4>Click to show all performance</h4></summary>
 
 | Methods                      | Throughput (samples/s) | Latency (s) | Params (B) | Speedup   | FID 👆      | CLIP 👆      | GenEval 👆  | DPG 👆      |
 |------------------------------|------------------------|-------------|------------|-----------|-------------|--------------|-------------|-------------|
@@ -366,10 +370,11 @@ We will try our best to release
 - \[✅\] LoRA training by [@paul](https://github.com/sayakpaul)(`diffusers`: https://github.com/huggingface/diffusers/pull/10234)
 - \[✅\] 2K/4K resolution models.(Thanks [@SUPIR](https://github.com/Fanghua-Yu/SUPIR) to provide a 4K super-resolution model)
 - \[✅\] 8bit / 4bit Laptop development
-- \[💻\] ControlNet (train & inference & models)
+- \[✅\] ControlNet (train & inference & models)
 - \[💻\] Larger model size
 - \[💻\] Better re-construction F32/F64 VAEs.
-- \[💻\] **Sana1.5 (Focus on: Human body / Human face / Text rendering / Realism / Efficiency)**
+- \[💻\] **SANA-1.5 (Focus on: Human body / Human face / Text rendering / Realism / Efficiency)**
+- \[💻\] **SANA-Sprint: Few-step generator**
 
 # 🤗Acknowledgements
 
