@@ -42,7 +42,7 @@ model:
 # VAE setting
 vae:
   vae_type: AutoencoderDC
-  vae_pretrained: mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers
+  vae_pretrained: mit-han-lab/dc-ae-f32c32-sana-1.1-diffusers
   scale_factor: 0.41407
   vae_latent_dim: 32
   vae_downsample_rate: 32
@@ -65,7 +65,7 @@ text_encoder:
     - 'User Prompt: '
 # Sana schedule Flow
 scheduler:
-  predict_v: true
+  predict_flow_v: true
   noise_schedule: linear_flow
   pred_sigma: false
   flow_shift: 6.0

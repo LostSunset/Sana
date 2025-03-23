@@ -23,6 +23,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 CTX = init_empty_weights if is_accelerate_available else nullcontext
 
 ckpt_ids = [
+    "Efficient-Large-Model/SANA1.5_4.8B_1024px/checkpoints/SANA1.5_4.8B_1024px.pth",
+    "Efficient-Large-Model/Sana_1600M_4Kpx_BF16/checkpoints/Sana_1600M_4Kpx_BF16.pth",
     "Efficient-Large-Model/Sana_1600M_2Kpx_BF16/checkpoints/Sana_1600M_2Kpx_BF16.pth",
     "Efficient-Large-Model/Sana_1600M_1024px_MultiLing/checkpoints/Sana_1600M_1024px_MultiLing.pth",
     "Efficient-Large-Model/Sana_1600M_1024px_BF16/checkpoints/Sana_1600M_1024px_BF16.pth",
@@ -93,10 +95,13 @@ def main(args):
         layer_num = 20
     elif args.model_type == "SanaMS_600M_P1_D28":
         layer_num = 28
+    elif args.model_type == "SanaMS_4800M_P1_D60":
+        layer_num = 60
     else:
         raise ValueError(f"{args.model_type} is not supported.")
     # Positional embedding interpolation scale.
     interpolation_scale = {512: None, 1024: None, 2048: 1.0, 4096: 2.0}
+    qk_norm = "rms_norm_across_heads" if "SANA1.5" in args.orig_ckpt_path else None
 
     for depth in range(layer_num):
         # Transformer blocks.
@@ -110,6 +115,13 @@ def main(args):
         converted_state_dict[f"transformer_blocks.{depth}.attn1.to_q.weight"] = q
         converted_state_dict[f"transformer_blocks.{depth}.attn1.to_k.weight"] = k
         converted_state_dict[f"transformer_blocks.{depth}.attn1.to_v.weight"] = v
+        if qk_norm is not None:
+            converted_state_dict[f"transformer_blocks.{depth}.attn1.norm_q.weight"] = state_dict.pop(
+                f"blocks.{depth}.attn.q_norm.weight"
+            )
+            converted_state_dict[f"transformer_blocks.{depth}.attn1.norm_k.weight"] = state_dict.pop(
+                f"blocks.{depth}.attn.k_norm.weight"
+            )
         # Projection.
         converted_state_dict[f"transformer_blocks.{depth}.attn1.to_out.0.weight"] = state_dict.pop(
             f"blocks.{depth}.attn.proj.weight"
@@ -147,6 +159,13 @@ def main(args):
         converted_state_dict[f"transformer_blocks.{depth}.attn2.to_k.bias"] = k_bias
         converted_state_dict[f"transformer_blocks.{depth}.attn2.to_v.weight"] = v
         converted_state_dict[f"transformer_blocks.{depth}.attn2.to_v.bias"] = v_bias
+        if qk_norm is not None:
+            converted_state_dict[f"transformer_blocks.{depth}.attn2.norm_q.weight"] = state_dict.pop(
+                f"blocks.{depth}.cross_attn.q_norm.weight"
+            )
+            converted_state_dict[f"transformer_blocks.{depth}.attn2.norm_k.weight"] = state_dict.pop(
+                f"blocks.{depth}.cross_attn.k_norm.weight"
+            )
 
         converted_state_dict[f"transformer_blocks.{depth}.attn2.to_out.0.weight"] = state_dict.pop(
             f"blocks.{depth}.cross_attn.proj.weight"
@@ -179,6 +198,7 @@ def main(args):
             norm_elementwise_affine=False,
             norm_eps=1e-6,
             interpolation_scale=interpolation_scale[args.image_size],
+            qk_norm=qk_norm,
         )
 
     if is_accelerate_available():
@@ -209,15 +229,15 @@ def main(args):
             )
         )
         transformer.save_pretrained(
-            os.path.join(args.dump_path, "transformer"), safe_serialization=True, max_shard_size="5GB", variant=variant
+            os.path.join(args.dump_path, "transformer"), safe_serialization=True, max_shard_size="5GB"
         )
     else:
         print(colored(f"Saving the whole SanaPipeline containing {args.model_type}", "green", attrs=["bold"]))
         # VAE
-        ae = AutoencoderDC.from_pretrained("mit-han-lab/dc-ae-f32c32-sana-1.0-diffusers", torch_dtype=torch.float32)
+        ae = AutoencoderDC.from_pretrained("mit-han-lab/dc-ae-f32c32-sana-1.1-diffusers", torch_dtype=torch.float32)
 
         # Text Encoder
-        text_encoder_model_path = "google/gemma-2-2b-it"
+        text_encoder_model_path = "Efficient-Large-Model/gemma-2-2b-it"
         tokenizer = AutoTokenizer.from_pretrained(text_encoder_model_path)
         tokenizer.padding_side = "right"
         text_encoder = AutoModelForCausalLM.from_pretrained(
@@ -243,19 +263,13 @@ def main(args):
             vae=ae,
             scheduler=scheduler,
         )
-        pipe.save_pretrained(args.dump_path, safe_serialization=True, max_shard_size="5GB", variant=variant)
+        pipe.save_pretrained(args.dump_path, safe_serialization=True, max_shard_size="5GB")
 
 
 DTYPE_MAPPING = {
     "fp32": torch.float32,
     "fp16": torch.float16,
     "bf16": torch.bfloat16,
-}
-
-VARIANT_MAPPING = {
-    "fp32": None,
-    "fp16": "fp16",
-    "bf16": "bf16",
 }
 
 
@@ -274,7 +288,10 @@ if __name__ == "__main__":
         help="Image size of pretrained model, 512, 1024, 2048 or 4096.",
     )
     parser.add_argument(
-        "--model_type", default="SanaMS_1600M_P1_D20", type=str, choices=["SanaMS_1600M_P1_D20", "SanaMS_600M_P1_D28"]
+        "--model_type",
+        default="SanaMS_1600M_P1_D20",
+        type=str,
+        choices=["SanaMS_1600M_P1_D20", "SanaMS_600M_P1_D28", "SanaMS_4800M_P1_D60"],
     )
     parser.add_argument(
         "--scheduler_type", default="flow-dpm_solver", type=str, choices=["flow-dpm_solver", "flow-euler"]
@@ -302,10 +319,17 @@ if __name__ == "__main__":
             "cross_attention_dim": 1152,
             "num_layers": 28,
         },
+        "SanaMS_4800M_P1_D60": {
+            "num_attention_heads": 70,
+            "attention_head_dim": 32,
+            "num_cross_attention_heads": 20,
+            "cross_attention_head_dim": 112,
+            "cross_attention_dim": 2240,
+            "num_layers": 60,
+        },
     }
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     weight_dtype = DTYPE_MAPPING[args.dtype]
-    variant = VARIANT_MAPPING[args.dtype]
 
     main(args)

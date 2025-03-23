@@ -58,8 +58,8 @@ text_encoder:
   chi_prompt: []
 # VAE settings
 vae:
-  vae_type: dc-ae
-  vae_pretrained: mit-han-lab/dc-ae-f32c32-sana-1.0
+  vae_type: AutoencoderDC
+  vae_pretrained: mit-han-lab/dc-ae-f32c32-sana-1.1-diffusers
   scale_factor: 0.41407
   vae_latent_dim: 32
   vae_downsample_rate: 32
@@ -67,7 +67,7 @@ vae:
 # Scheduler settings
 scheduler:
   train_sampling_steps: 1000
-  predict_v: True
+  predict_flow_v: True
   noise_schedule: linear_flow
   pred_sigma: false
   flow_shift: 1.0

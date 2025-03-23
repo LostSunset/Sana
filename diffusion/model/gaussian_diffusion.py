@@ -45,7 +45,7 @@ class ModelMeanType(enum.Enum):
     PREVIOUS_X = enum.auto()  # the model predicts x_{t-1}
     START_X = enum.auto()  # the model predicts x_0
     EPSILON = enum.auto()  # the model predicts epsilon
-    VELOCITY = enum.auto()  # the model predicts velocity
+    FLOW_VELOCITY = enum.auto()  # the model predicts velocity
 
 
 class ModelVarType(enum.Enum):
@@ -191,42 +191,20 @@ class GaussianDiffusion:
         self.snr = snr
         self.return_startx = return_startx
         self.flow = flow
+        self.sigma_data = 0.5
 
         # Use float64 for accuracy.
         betas = np.array(betas, dtype=np.float64)
         self.betas = betas
-        self.sigmas = 1.0 - betas if sigmas is None else sigmas
-        self.one_minus_sigmas = 1.0 - self.sigmas
-        assert len(betas.shape) == 1, "betas must be 1-D"
-        assert (betas > 0).all() and (betas <= 1).all()
 
         self.num_timesteps = int(betas.shape[0])
+
+        assert len(betas.shape) == 1, "betas must be 1-D"
+        assert (betas > 0).all() and (betas <= 1).all()
 
         alphas = 1.0 - betas
         self.alphas = alphas
         self.alphas_cumprod = np.cumprod(alphas, axis=0)
-
-        if False:
-            target_resolution = 128  # 1024:128; 512:64; 256:32;
-            reference_resolution = 64  # Reference resolution (e.g., 64x64)
-            scaling_factor = (target_resolution / reference_resolution) ** 2
-            print("scaling_factor", scaling_factor)
-
-            # Adjust alphas and betas according to the scaling factor
-            alpha_cumprod_snr_shift = self.alphas_cumprod / (
-                scaling_factor * (1 - self.alphas_cumprod) + self.alphas_cumprod
-            )
-            alpha_cuspord_rmove1 = np.concatenate([np.ones([1]), alpha_cumprod_snr_shift[:999]])
-            alpha_snr_shift = alpha_cumprod_snr_shift / alpha_cuspord_rmove1
-
-            betas_snr_shift = 1 - alpha_snr_shift
-
-            # Update the class attributes with adjusted values
-            snr_ref = self.alphas_cumprod / (1 - self.alphas_cumprod)
-            snr_cur = alpha_cumprod_snr_shift / (1 - alpha_cumprod_snr_shift)
-
-            self.betas = betas_snr_shift
-            self.alphas_cumprod = np.cumprod(alpha_snr_shift, axis=0)
 
         self.alphas_cumprod_prev = np.append(1.0, self.alphas_cumprod[:-1])
         self.alphas_cumprod_next = np.append(self.alphas_cumprod[1:], 0.0)
@@ -250,6 +228,10 @@ class GaussianDiffusion:
 
         self.posterior_mean_coef1 = betas * np.sqrt(self.alphas_cumprod_prev) / (1.0 - self.alphas_cumprod)
         self.posterior_mean_coef2 = (1.0 - self.alphas_cumprod_prev) * np.sqrt(alphas) / (1.0 - self.alphas_cumprod)
+
+        if self.flow:
+            self.sigmas = 1.0 - betas if sigmas is None else sigmas
+            self.alphas = 1.0 - self.sigmas
 
     def q_mean_variance(self, x_start, t):
         """
@@ -277,7 +259,7 @@ class GaussianDiffusion:
         assert noise.shape == x_start.shape
         if self.flow:
             return (
-                _extract_into_tensor(self.one_minus_sigmas, t, x_start.shape) * x_start
+                _extract_into_tensor(self.alphas, t, x_start.shape) * x_start
                 + _extract_into_tensor(self.sigmas, t, x_start.shape) * noise
             )
         else:
@@ -821,7 +803,7 @@ class GaussianDiffusion:
                 ModelMeanType.PREVIOUS_X: self.q_posterior_mean_variance(x_start=x_start, x_t=x_t, t=t)[0],
                 ModelMeanType.START_X: x_start,
                 ModelMeanType.EPSILON: noise,
-                ModelMeanType.VELOCITY: noise - x_start,
+                ModelMeanType.FLOW_VELOCITY: noise - x_start,
             }[self.model_mean_type]
             assert output.shape == target.shape == x_start.shape
             if self.snr:

@@ -1,5 +1,7 @@
 ## 🔥 1. We provide all the links of Sana pth and diffusers safetensor below
 
+### [SANA](https://arxiv.org/abs/2410.10629)
+
 | Model                | Reso   | pth link                                                                                                                    | diffusers                                                                                                                                         | Precision     | Description    |
 |----------------------|--------|-----------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|---------------|----------------|
 | Sana-0.6B            | 512px  | [Sana_600M_512px](https://huggingface.co/Efficient-Large-Model/Sana_600M_512px)                                             | [Efficient-Large-Model/Sana_600M_512px_diffusers](https://huggingface.co/Efficient-Large-Model/Sana_600M_512px_diffusers)                         | fp16/fp32     | Multi-Language |
@@ -16,6 +18,23 @@
 | ControlNet           |        |                                                                                                                             |                                                                                                                                                   |               |                |
 | Sana-1.6B-ControlNet | 1Kpx   | [Sana_1600M_1024px_BF16_ControlNet_HED](https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px_BF16_ControlNet_HED) | Coming soon                                                                                                                                       | **bf16**/fp32 | Multi-Language |
 | Sana-0.6B-ControlNet | 1Kpx   | [Sana_600M_1024px_ControlNet_HED](https://huggingface.co/Efficient-Large-Model/Sana_600M_1024px_ControlNet_HED)             | Coming soon                                                                                                                                       | fp16/fp32     | -              |
+
+______________________________________________________________________
+
+### [SANA-1.5](https://arxiv.org/abs/2501.18427)
+
+| Model        | Reso   | pth link                                                                                | diffusers                                                                                                                         | Precision | Description    |
+|--------------|--------|-----------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|-----------|----------------|
+| SANA1.5-4.8B | 1024px | [SANA1.5_4.8B_1024px](https://huggingface.co/Efficient-Large-Model/SANA1.5_4.8B_1024px) | [Efficient-Large-Model/SANA1.5_4.8B_1024px_diffusers](https://huggingface.co/Efficient-Large-Model/SANA1.5_4.8B_1024px_diffusers) | bf16      | Multi-Language |
+| SANA1.5-1.6B | 1024px | [SANA1.5_1.6B_1024px](https://huggingface.co/Efficient-Large-Model/SANA1.5_1.6B_1024px) | [Efficient-Large-Model/SANA1.5_1.6B_1024px_diffusers](https://huggingface.co/Efficient-Large-Model/SANA1.5_1.6B_1024px_diffusers) | bf16      | Multi-Language |
+
+### [SANA-Sprint](https://arxiv.org/pdf/2503.09641)
+
+| Model            | Reso   | pth link                                                                                        | diffusers                                                                                                                                     | Precision | Description    |
+|------------------|--------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|-----------|----------------|
+| Sana-Sprint-1.6B | 1024px | [Sana-Sprint_1.6B_1024px](https://huggingface.co/Efficient-Large-Model/Sana_Sprint_1.6B_1024px) | \[Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers\]((https://huggingface.co/Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers)  | bf16      | Multi-Language |
+
+______________________________________________________________________
 
 ## ❗ 2. Make sure to use correct precision(fp16/bf16/fp32) for training and inference.
 

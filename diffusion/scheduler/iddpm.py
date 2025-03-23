@@ -18,9 +18,9 @@
 #     GLIDE: https://github.com/openai/glide-text2im/blob/main/glide_text2im/gaussian_diffusion.py
 #     ADM:   https://github.com/openai/guided-diffusion/blob/main/guided_diffusion
 #     IDDPM: https://github.com/openai/improved-diffusion/blob/main/improved_diffusion/gaussian_diffusion.py
-from diffusion.model.respace import SpacedDiffusion, space_timesteps
 
-from .model import gaussian_diffusion as gd
+from diffusion.model import gaussian_diffusion as gd
+from diffusion.model.respace import SpacedDiffusion, space_timesteps
 
 
 def Scheduler(
@@ -29,7 +29,7 @@ def Scheduler(
     use_kl=False,
     sigma_small=False,
     predict_xstart=False,
-    predict_v=False,
+    predict_flow_v=False,
     learn_sigma=True,
     pred_sigma=True,
     rescale_learned_sigmas=False,
@@ -49,8 +49,8 @@ def Scheduler(
         timestep_respacing = [diffusion_steps]
     if predict_xstart:
         model_mean_type = gd.ModelMeanType.START_X
-    elif predict_v:
-        model_mean_type = gd.ModelMeanType.VELOCITY
+    elif predict_flow_v:
+        model_mean_type = gd.ModelMeanType.FLOW_VELOCITY
     else:
         model_mean_type = gd.ModelMeanType.EPSILON
     return SpacedDiffusion(

@@ -30,6 +30,7 @@ from diffusion.model.nets.sana_blocks import (
     FlashAttention,
     LiteLA,
     MultiHeadCrossAttention,
+    MultiHeadCrossVallinaAttention,
     PatchEmbed,
     T2IFinalLayer,
     TimestepEmbedder,
@@ -59,12 +60,13 @@ class SanaBlock(nn.Module):
         num_heads,
         mlp_ratio=4.0,
         drop_path=0,
-        input_size=None,
         qk_norm=False,
+        cross_norm=False,
         attn_type="flash",
         ffn_type="mlp",
         mlp_acts=("silu", "silu", None),
         linear_head_dim=32,
+        cross_attn_type="flash",
         **block_kwargs,
     ):
         super().__init__()
@@ -98,7 +100,12 @@ class SanaBlock(nn.Module):
         else:
             raise ValueError(f"{attn_type} type is not defined.")
 
-        self.cross_attn = MultiHeadCrossAttention(hidden_size, num_heads, **block_kwargs)
+        if cross_attn_type in ["flash", "linear"]:
+            self.cross_attn = MultiHeadCrossAttention(hidden_size, num_heads, qk_norm=cross_norm, **block_kwargs)
+        elif cross_attn_type == "vanilla":
+            self.cross_attn = MultiHeadCrossVallinaAttention(hidden_size, num_heads, qk_norm=cross_norm, **block_kwargs)
+        else:
+            raise ValueError(f"{cross_attn_type} type is not defined.")
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         # to be compatible with lower version pytorch
         if ffn_type == "dwmlp":
@@ -122,28 +129,6 @@ class SanaBlock(nn.Module):
                 norm=(None, None, None),
                 act=mlp_acts,
                 dilation=2,
-            )
-        elif ffn_type == "mbconvpreglu":
-            self.mlp = MBConvPreGLU(
-                in_dim=hidden_size,
-                out_dim=hidden_size,
-                mid_dim=int(hidden_size * mlp_ratio),
-                use_bias=(True, True, False),
-                norm=None,
-                act=("silu", "silu", None),
-            )
-        elif ffn_type == "triton_mbconvpreglu":
-            if not _triton_modules_available:
-                raise ValueError(
-                    f"{ffn_type} type is not available due to _triton_modules_available={_triton_modules_available}."
-                )
-            self.mlp = TritonMBConvPreGLU(
-                in_dim=hidden_size,
-                out_dim=hidden_size,
-                mid_dim=int(hidden_size * mlp_ratio),
-                use_bias=(True, True, False),
-                norm=None,
-                act=("silu", "silu", None),
             )
         elif ffn_type == "mlp":
             approx_gelu = lambda: nn.GELU(approximate="tanh")
@@ -197,31 +182,43 @@ class Sana(nn.Module):
         y_norm=False,
         norm_eps=1e-5,
         attn_type="flash",
+        cross_attn_type="flash",
         ffn_type="mlp",
         use_pe=True,
         y_norm_scale_factor=1.0,
         patch_embed_kernel=None,
         mlp_acts=("silu", "silu", None),
         linear_head_dim=32,
+        cross_norm=False,
+        pos_embed_type="sincos",
+        cfg_embed=False,
+        timestep_norm_scale_factor=1.0,
+        null_embed_path=None,
         **kwargs,
     ):
         super().__init__()
         self.pred_sigma = pred_sigma
         self.in_channels = in_channels
         self.out_channels = in_channels * 2 if pred_sigma else in_channels
+        self.hidden_size = hidden_size
         self.patch_size = patch_size
         self.num_heads = num_heads
         self.pe_interpolation = pe_interpolation
         self.depth = depth
         self.use_pe = use_pe
+        self.pos_embed_type = pos_embed_type
         self.y_norm = y_norm
         self.fp32_attention = kwargs.get("use_fp32_attention", False)
-
+        self.config = config
+        self.timestep_norm_scale_factor = timestep_norm_scale_factor
         kernel_size = patch_embed_kernel or patch_size
         self.x_embedder = PatchEmbed(
             input_size, patch_size, in_channels, hidden_size, kernel_size=kernel_size, bias=True
         )
         self.t_embedder = TimestepEmbedder(hidden_size)
+        self.cfg_embedder = None
+        if cfg_embed:
+            self.cfg_embedder = TimestepEmbedder(hidden_size)
         num_patches = self.x_embedder.num_patches
         self.base_size = input_size // self.patch_size
         # Will use fixed sin-cos embedding:
@@ -246,12 +243,13 @@ class Sana(nn.Module):
                     num_heads,
                     mlp_ratio=mlp_ratio,
                     drop_path=drop_path[i],
-                    input_size=(input_size // patch_size, input_size // patch_size),
                     qk_norm=qk_norm,
+                    cross_norm=cross_norm,
                     attn_type=attn_type,
                     ffn_type=ffn_type,
                     mlp_acts=mlp_acts,
                     linear_head_dim=linear_head_dim,
+                    cross_attn_type=cross_attn_type,
                 )
                 for i in range(depth)
             ]
@@ -260,17 +258,19 @@ class Sana(nn.Module):
 
         self.initialize_weights()
 
-        if config:
+        if config and config.work_dir:
             logger = get_root_logger(os.path.join(config.work_dir, "train_log.log"))
-            logger = logger.warning
+            logger = logger.info
         else:
             logger = print
         if get_rank() == 0:
             logger(
-                f"use pe: {use_pe}, position embed interpolation: {self.pe_interpolation}, base size: {self.base_size}"
+                f"use pe: {use_pe}, pos embed type: {pos_embed_type}, "
+                f"position embed interpolation: {self.pe_interpolation}, base size: {self.base_size}"
             )
             logger(
-                f"attention type: {attn_type}; ffn type: {ffn_type}; "
+                f"attention type: {attn_type}; ffn type: {ffn_type}; self-attn qk norm: {qk_norm}; "
+                f"cross-attn type: {cross_attn_type};  cross-attn qk norm: {cross_norm}; "
                 f"autocast linear attn: {os.environ.get('AUTOCAST_LINEAR_ATTN', False)}"
             )
 
@@ -286,10 +286,14 @@ class Sana(nn.Module):
         y = y.to(self.dtype)
         pos_embed = self.pos_embed.to(self.dtype)
         self.h, self.w = x.shape[-2] // self.patch_size, x.shape[-1] // self.patch_size
+        x = self.x_embedder(x)
+        image_pos_embed = None
         if self.use_pe:
-            x = self.x_embedder(x) + pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
-        else:
-            x = self.x_embedder(x)
+            if self.pos_embed_type == "sincos":
+                x = x + pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
+            elif self.pos_embed_type == "3d_rope":
+                image_pos_embed = pos_embed
+                x += image_pos_embed
         t = self.t_embedder(timestep.to(x.dtype))  # (N, D)
         t0 = self.t_block(t)
         y = self.y_embedder(y, self.training)  # (N, 1, L, D)
@@ -305,7 +309,7 @@ class Sana(nn.Module):
             y_lens = [y.shape[2]] * y.shape[0]
             y = y.squeeze(1).view(1, -1, x.shape[-1])
         for block in self.blocks:
-            x = auto_grad_checkpoint(block, x, y, t0, y_lens)  # (N, T, D) #support grad checkpoint
+            x = auto_grad_checkpoint(block, x, y, t0, y_lens, image_pos_embed)  # (N, T, D) #support grad checkpoint
         x = self.final_layer(x, t)  # (N, T, patch_size ** 2 * out_channels)
         x = self.unpatchify(x)  # (N, out_channels, H, W)
         return x
@@ -351,13 +355,20 @@ class Sana(nn.Module):
         self.apply(_basic_init)
 
         if self.use_pe:
-            # Initialize (and freeze) pos_embed by sin-cos embedding:
-            pos_embed = get_2d_sincos_pos_embed(
-                self.pos_embed.shape[-1],
-                int(self.x_embedder.num_patches**0.5),
-                pe_interpolation=self.pe_interpolation,
-                base_size=self.base_size,
-            )
+            if self.pos_embed_type == "sincos":
+                # Initialize (and freeze) pos_embed by sin-cos embedding:
+                pos_embed = get_2d_sincos_pos_embed(
+                    self.pos_embed.shape[-1],
+                    int(self.x_embedder.num_patches**0.5),
+                    pe_interpolation=self.pe_interpolation,
+                    base_size=self.base_size,
+                )
+            elif self.pos_embed_type == "3d_rope":
+                # Initialize (and freeze) pos_embed by 3D-Rope embedding:
+                pos_embed = RopePosEmbed(theta=10000, axes_dim=[0, 16, 16])
+            else:
+                raise ValueError(f"Unknown pos_embed_type: {self.pos_embed_type}")
+
             self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
         # Initialize patch_embed like nn.Linear (instead of nn.Conv2d):
