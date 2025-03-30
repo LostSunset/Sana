@@ -10,7 +10,8 @@
   <a href="https://nvlabs.github.io/Sana/"><img src="https://img.shields.io/static/v1?label=Project&message=Github&color=blue&logo=github-pages"></a> &ensp;
   <a href="https://hanlab.mit.edu/projects/sana/"><img src="https://img.shields.io/static/v1?label=Page&message=MIT&color=darkred&logo=github-pages"></a> &ensp;
   <a href="https://arxiv.org/abs/2410.10629"><img src="https://img.shields.io/static/v1?label=Arxiv&message=Sana&color=red&logo=arxiv"></a> &ensp;
-  <a href="https://nv-sana.mit.edu/"><img src="https://img.shields.io/static/v1?label=Demo:6x3090&message=MIT&color=yellow"></a> &ensp;
+  <a href="https://nv-sana.mit.edu/"><img src="https://img.shields.io/static/v1?label=Demo:5x3090&message=SANA&color=yellow"></a> &ensp;
+  <a href="https://nv-sana.mit.edu/sprint/"><img src="https://img.shields.io/static/v1?label=Demo:1x3090&message=SANA-Sprint&color=yellow"></a> &ensp;
   <a href="https://nv-sana.mit.edu/4bit/"><img src="https://img.shields.io/static/v1?label=Demo:1x3090&message=4bit&color=yellow"></a> &ensp;
   <a href="https://nv-sana.mit.edu/ctrlnet/"><img src="https://img.shields.io/static/v1?label=Demo:1x3090&message=ControlNet&color=yellow"></a> &ensp;
   <a href="https://replicate.com/chenxwh/sana"><img src="https://img.shields.io/static/v1?label=API:H100&message=Replicate&color=pink"></a> &ensp;
@@ -21,22 +22,35 @@
   <img src="asset/Sana.jpg" width="90%" alt="teaser_page1"/>
 </p>
 
-## 💡 Introduction
+## 💡 TLDR: Explore everything you want here!
 
-We introduce Sana, a text-to-image framework that can efficiently generate images up to 4096 × 4096 resolution.
-Sana can synthesize high-resolution, high-quality images with strong text-image alignment at a remarkably fast speed, deployable on laptop GPU.
-Core designs include:
+### 🚶 Basic:
 
-(1) [**DC-AE**](https://hanlab.mit.edu/projects/dc-ae): unlike traditional AEs, which compress images only 8×, we trained an AE that can compress images 32×, effectively reducing the number of latent tokens. \
-(2) **Linear DiT**: we replace all vanilla attention in DiT with linear attention, which is more efficient at high resolutions without sacrificing quality. \
-(3) **Decoder-only text encoder**: we replaced T5 with a modern decoder-only small LLM as the text encoder and designed complex human instruction with in-context learning to enhance the image-text alignment. \
-(4) **Efficient training and sampling**: we propose **Flow-DPM-Solver** to reduce sampling steps, with efficient caption labeling and selection to accelerate convergence.
+**Demo**: [SANA-1.5](https://nv-sana.mit.edu/) | [SANA-ControlNet](https://nv-sana.mit.edu/ctrlnet/) | [SANA-4bit](https://nv-sana.mit.edu/4bit/) | [SANA-Sprint](https://nv-sana.mit.edu/sprint/) <br>
+**ComfyUI**: [ComfyUI Guidance](asset/docs/ComfyUI/comfyui.md) <br>
+**Model Zoo:** [Model Card Collects All Models](asset/docs/model_zoo.md) <br>
+**Env Preparation:** [One-Click Env Install](#-1-dependencies-and-installation) <br>
+**Inference:** <br>      1) [diffusers:SanaPipeline](#1-how-to-use-sanapipeline-with-diffusers) <br>      2) [diffusers:SanaPAGPipeline](#2-how-to-use-sanapagpipeline-with-diffusers) <br>      3) [Ours:SanaPipeline](#3-how-to-use-sana-in-this-repo) <br>      4) [Inference with Docker](#4-run-sana-inference-with-docker) <br>      5) [Inference with TXT or JSON Files](#5-run-inference-with-txt-or-json-files) <br>
+**Training and Data:** <br>      1) [Image-Text Pairs](#1-train-with-image-text-pairs-in-directory) <br>      2) [Multi-Scale Webdataset](#2-train-with-multi-scale-webdataset) <br>      3) [TAR File Multi-Scale Webdataset](#3-train-with-tar-file) <br>      4) [FSDP Launch](#3-train-with-tar-file) <br>      5) [LoRA Training](asset/docs/sana_lora_dreambooth.md) <br>
 
-As a result, Sana-0.6B is very competitive with modern giant diffusion models (e.g. Flux-12B), being 20 times smaller and 100+ times faster in measured throughput. Moreover, Sana-0.6B can be deployed on a 16GB laptop GPU, taking less than 1 second to generate a 1024 × 1024 resolution image. Sana enables content creation at low cost.
+### 🏃 Applications:
 
-<p align="center" border-raduis="10px">
-  <img src="asset/model-incremental.jpg" width="90%" alt="teaser_page2"/>
-</p>
+**2K & 4K Resolution Generation**: [SANA is Capable to Generate 2K & 4K Images (Only 8BG)](asset/docs/model_zoo.md#-3-2k--4k-models) <br>
+**ControlNet**: [Train&Inference Guidance](asset/docs/sana_controlnet.md) | [Model Zoo](asset/docs/model_zoo.md#sana) | [Demo](https://nv-sana.mit.edu/ctrlnet/) <br>
+**Dreambooth / LoRA Training**: [Train&Inference Guidance](asset/docs/sana_lora_dreambooth.md) <br>
+**Quantization**: [Inference with 8bit](asset/docs/8bit_sana.md) | [Infernece with 4bit (8BG)](asset/docs/4bit_sana.md) | [4bit Model](asset/docs/model_zoo.md#sana) | [4bit Demo](https://svdquant.mit.edu/) | [4bit Demo2](https://nv-sana.mit.edu/4bit/) <br>
+**8bit Optimizer**: [How to Config](https://github.com/NVlabs/Sana/blob/main/configs/sana_config/1024ms/Sana_1600M_img1024_CAME8bit.yaml#L86) <br>
+**Inference Scaling:** [SANA Generate VILA Pick Inference Scaling](asset/docs/inference_scaling/inference_scaling.md) <br>
+**Metrics:** [Metric Toolkit: (FID, CLIP-Score, GenEval, DPG-Bench)](#-4-metric-toolkit) <br>
+
+### 🚗 Advance:
+
+**SANA-Sprint: One-Step Diffusion**: [Arxiv](https://arxiv.org/pdf/2503.09641) | [Train&Inference Guidance](asset/docs/sana_sprint.md) | [Model Zoo](asset/docs/model_zoo.md#sana-sprint) | [HF Weights](https://huggingface.co/collections/Efficient-Large-Model/sana-sprint-67d6810d65235085b3b17c76) <br>
+**SANA-1.5: Efficient Model Scaling:** [Arxiv](https://arxiv.org/abs/2501.18427) | [Model Zoo](asset/docs/model_zoo.md#sana-15) | [HF Weights](https://huggingface.co/collections/Efficient-Large-Model/sana-15-67d6803867cb21c230b780e4) <br>
+
+### 🚀 Future:
+
+**Mission**: [TODO](#to-do-list)
 
 ## 🔥🔥 News
 
@@ -54,7 +68,7 @@ As a result, Sana-0.6B is very competitive with modern giant diffusion models (e
 <details>
   <summary>Click to show all updates</summary>
 
-- (🔥 New) \[2025/1/12\] DC-AE tiling makes Sana-4K inferences 4096x4096px images within 22GB GPU memory. With model offload and 8bit/4bit quantize. The 4K Sana run within **8GB** GPU VRAM. [\[Guidance\]](asset/docs/model_zoo.md#-3-4k-models)
+- (🔥 New) \[2025/1/12\] DC-AE tiling makes Sana-4K inferences 4096x4096px images within 22GB GPU memory. With model offload and 8bit/4bit quantize. The 4K Sana run within **8GB** GPU VRAM. [\[Guidance\]](asset/docs/model_zoo.md#-3-2k--4k-models)
 - (🔥 New) \[2025/1/11\] Sana code-base license changed to Apache 2.0.
 - (🔥 New) \[2025/1/10\] Inference Sana with 8bit quantization.[\[Guidance\]](asset/docs/8bit_sana.md#quantization)
 - (🔥 New) \[2025/1/8\] 4K resolution [Sana models](asset/docs/model_zoo.md) is supported in [Sana-ComfyUI](https://github.com/Efficient-Large-Model/ComfyUI_ExtraModels) and [work flow](asset/docs/ComfyUI/Sana_FlowEuler_4K.json) is also prepared. [\[4K guidance\]](asset/docs/ComfyUI/comfyui.md)
@@ -77,15 +91,33 @@ As a result, Sana-0.6B is very competitive with modern giant diffusion models (e
 
 </details>
 
+## 💡 Introduction
+
+We introduce Sana, a text-to-image framework that can efficiently generate images up to 4096 × 4096 resolution.
+Sana can synthesize high-resolution, high-quality images with strong text-image alignment at a remarkably fast speed, deployable on laptop GPU.
+Core designs include:
+
+(1) [**DC-AE**](https://hanlab.mit.edu/projects/dc-ae): unlike traditional AEs, which compress images only 8×, we trained an AE that can compress images 32×, effectively reducing the number of latent tokens. \
+(2) **Linear DiT**: we replace all vanilla attention in DiT with linear attention, which is more efficient at high resolutions without sacrificing quality. \
+(3) **Decoder-only text encoder**: we replaced T5 with a modern decoder-only small LLM as the text encoder and designed complex human instruction with in-context learning to enhance the image-text alignment. \
+(4) **Efficient training and sampling**: we propose **Flow-DPM-Solver** to reduce sampling steps, with efficient caption labeling and selection to accelerate convergence.
+
+As a result, Sana-0.6B is very competitive with modern giant diffusion models (e.g. Flux-12B), being 20 times smaller and 100+ times faster in measured throughput. Moreover, Sana-0.6B can be deployed on a 16GB laptop GPU, taking less than 1 second to generate a 1024 × 1024 resolution image. Sana enables content creation at low cost.
+
+<p align="center" border-raduis="10px">
+  <img src="asset/model-incremental.jpg" width="90%" alt="teaser_page2"/>
+</p>
+
 ## Performance
 
-| Methods (1024x1024)                                                                                 | Throughput (samples/s) | Latency (s) | Params (B) | Speedup | FID 👇      | CLIP 👆      | GenEval 👆  | DPG 👆      |
-|-----------------------------------------------------------------------------------------------------|------------------------|-------------|------------|---------|-------------|--------------|-------------|-------------|
-| FLUX-dev                                                                                            | 0.04                   | 23.0        | 12.0       | 1.0×    | 10.15       | 27.47        | _0.67_      | 84.0        |
-| **Sana-0.6B**                                                                                       | 1.7                    | 0.9         | 0.6        | 39.5×   | _5.81_      | 28.36        | 0.64        | 83.6        |
-| **[Sana-0.6B-MultiLing](https://huggingface.co/Efficient-Large-Model/Sana_600M_1024px)**            | 1.7                    | 0.9         | 0.6        | 39.5×   | **5.61**    | <u>28.80</u> | <u>0.68</u> | _84.2_      |
-| **Sana-1.6B**                                                                                       | 1.0                    | 1.2         | 1.6        | 23.3×   | <u>5.76</u> | _28.67_      | 0.66        | **84.8**    |
-| **[Sana-1.6B-MultiLing](https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px_MultiLing)** | 1.0                    | 1.2         | 1.6        | 23.3×   | 5.92        | **28.94**    | **0.69**    | <u>84.5</u> |
+| Methods (1024x1024)                                                                              | Throughput (samples/s) | Latency (s) | Params (B) | Speedup | FID 👇      | CLIP 👆      | GenEval 👆  | DPG 👆        |
+|--------------------------------------------------------------------------------------------------|------------------------|-------------|------------|---------|-------------|--------------|-------------|---------------|
+| FLUX-dev                                                                                         | 0.04                   | 23.0        | 12.0       | 1.0×    | 10.15       | 27.47        | 0.67        | 84.0          |
+| **Sana-0.6B**                                                                                    | 1.7                    | 0.9         | 0.6        | 39.5×   | _5.81_      | 28.36        | 0.64        | 83.6          |
+| **[Sana-0.6B](https://huggingface.co/Efficient-Large-Model/Sana_600M_1024px)**                   | 1.7                    | 0.9         | 0.6        | 39.5×   | **5.61**    | 28.80        | 0.68        | _84.2_        |
+| **[Sana-1.6B](https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px_MultiLing)**        | 1.0                    | 1.2         | 1.6        | 23.3×   | 5.92        | _28.94_      | _0.69_      | <u>84.5</u>   |
+| **[Sana-1.5 1.6B](https://huggingface.co/Efficient-Large-Model/SANA1.5_1.6B_1024px_diffusers)**  | 1.0                    | 1.2         | 1.6        | 23.3×   | <u>5.70</u> | <u>29.12</u> | **0.82**    | <u>84.5</u>   |
+| **[Sana-1.5 4.8B](https://huggingface.co/Efficient-Large-Model/SANA1.5_4.8B_1024px_diffusers)**  | 0.26                   | 4.2         | 4.8        | 6.5×    | 5.99        | **29.23**    | <u>0.81</u> | **84.7**      |
 
 <details>
   <summary><h4>Click to show all performance</h4></summary>
@@ -175,8 +207,7 @@ import torch
 from diffusers import SanaPipeline
 
 pipe = SanaPipeline.from_pretrained(
-    "Efficient-Large-Model/Sana_1600M_1024px_BF16_diffusers",
-    variant="bf16",
+    "Efficient-Large-Model/SANA1.5_1.6B_1024px",
     torch_dtype=torch.bfloat16,
 )
 pipe.to("cuda")
@@ -199,15 +230,17 @@ image[0].save("sana.png")
 
 ### 2. How to use `SanaPAGPipeline` with `🧨diffusers`
 
+<details>
+<summary>Click to show all</summary>
+
 ```python
 # run `pip install git+https://github.com/huggingface/diffusers` before use Sana in diffusers
 import torch
 from diffusers import SanaPAGPipeline
 
 pipe = SanaPAGPipeline.from_pretrained(
-  "Efficient-Large-Model/Sana_1600M_1024px_diffusers",
-  variant="fp16",
-  torch_dtype=torch.float16,
+  "Efficient-Large-Model/SANA1.5_1.6B_1024px_diffusers",
+  torch_dtype=torch.bfloat16,
   pag_applied_layers="transformer_blocks.8",
 )
 pipe.to("cuda")
@@ -226,8 +259,12 @@ image = pipe(
 image[0].save('sana.png')
 ```
 
+</details>
+
+### 3. How to use Sana in this repo
+
 <details>
-<summary><h3>3. How to use Sana in this repo</h3></summary>
+<summary>Click to show all</summary>
 
 ```python
 import torch
@@ -237,17 +274,17 @@ from torchvision.utils import save_image
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 generator = torch.Generator(device=device).manual_seed(42)
 
-sana = SanaPipeline("configs/sana_config/1024ms/Sana_1600M_img1024.yaml")
-sana.from_pretrained("hf://Efficient-Large-Model/Sana_1600M_1024px_BF16/checkpoints/Sana_1600M_1024px_BF16.pth")
+sana = SanaPipeline("configs/sana1-5_config/1024ms/Sana_1600M_1024px_allqknorm_bf16_lr2e5.yaml")
+sana.from_pretrained("hf://Efficient-Large-Model/SANA1.5_1.6B_1024px/checkpoints/SANA1.5_1.6B_1024px.pth")
 prompt = 'a cyberpunk cat with a neon sign that says "Sana"'
 
 image = sana(
     prompt=prompt,
     height=1024,
     width=1024,
-    guidance_scale=5.0,
-    pag_guidance_scale=2.0,
-    num_inference_steps=18,
+    guidance_scale=4.5,
+    pag_guidance_scale=1.0,
+    num_inference_steps=20,
     generator=generator,
 )
 save_image(image, 'output/sana.png', nrow=1, normalize=True, value_range=(-1, 1))
@@ -255,8 +292,10 @@ save_image(image, 'output/sana.png', nrow=1, normalize=True, value_range=(-1, 1)
 
 </details>
 
+### 4. Run Sana (Inference) with Docker
+
 <details>
-<summary><h3>4. Run Sana (Inference) with Docker</h3></summary>
+<summary>Click to show all</summary>
 
 ```
 # Pull related models
@@ -274,7 +313,7 @@ docker run --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
 
 </details>
 
-## 🔛 Run inference with TXT or JSON files
+### 5. Run inference with TXT or JSON files
 
 ```bash
 # Run samples in a txt file
@@ -419,7 +458,7 @@ Our SANA-Sprint models focus on timestep distillation, achieving high-quality ge
 
 # 💪To-Do List
 
-We will try our best to release
+We will try our best to achieve
 
 - \[✅\] Training code
 - \[✅\] Inference code
@@ -435,6 +474,7 @@ We will try our best to release
 - \[✅\] **SANA-1.5 (Larger model size / Inference Scaling)**
 - \[✅\] **SANA-Sprint: Few-step generator**
 - \[💻\] Better re-construction F32/F64 VAEs.
+- \[🚀\] Video Generation
 
 # 🤗Acknowledgements
 

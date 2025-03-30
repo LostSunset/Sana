@@ -39,6 +39,8 @@ ckpt_ids = [
     "Efficient-Large-Model/Sana_600M_1024px/checkpoints/Sana_600M_1024px_MultiLing.pth",
     "Efficient-Large-Model/Sana_600M_512px/checkpoints/Sana_600M_512px_MultiLing.pth",
 ]
+
+
 # https://github.com/NVlabs/Sana/blob/main/scripts/inference.py
 
 
@@ -121,12 +123,33 @@ def main(args):
     # model config
     if args.model_type in ["SanaMS_1600M_P1_D20", "SanaSprint_1600M_P1_D20", "SanaMS1.5_1600M_P1_D20"]:
         layer_num = 20
+        hidden_size = model_kwargs[args.model_type]["cross_attention_dim"]
     elif args.model_type in ["SanaMS_600M_P1_D28", "SanaSprint_600M_P1_D28"]:
         layer_num = 28
+        hidden_size = model_kwargs[args.model_type]["cross_attention_dim"]
     elif args.model_type == "SanaMS_4800M_P1_D60":
         layer_num = 60
+        hidden_size = model_kwargs[args.model_type]["cross_attention_dim"]
     else:
         raise ValueError(f"{args.model_type} is not supported.")
+
+    base_mlp_ratio = 2.5
+    mlp_hidden_features = int(hidden_size * base_mlp_ratio)
+    if mlp_hidden_features % 64 != 0:
+        mlp_hidden_features = ((mlp_hidden_features + 63) // 64) * 64
+        mlp_ratio = mlp_hidden_features / hidden_size
+    else:
+        mlp_ratio = base_mlp_ratio
+
+    print(f"used mlp_ratio: {mlp_ratio}, hidden_size: {hidden_size}, mlp_hidden_features: {mlp_hidden_features}")
+
+    # pre-calculate the shape of each layer
+    inverted_conv_shape = (mlp_hidden_features * 2, hidden_size, 1, 1)
+    inverted_bias_shape = (mlp_hidden_features * 2,)
+    depth_conv_shape = (mlp_hidden_features * 2, 1, 3, 3)
+    depth_bias_shape = (mlp_hidden_features * 2,)
+    point_conv_shape = (hidden_size, mlp_hidden_features, 1, 1)
+
     # Positional embedding interpolation scale.
     interpolation_scale = {512: None, 1024: None, 2048: 1.0, 4096: 2.0}
     qk_norm = (
@@ -135,6 +158,27 @@ def main(args):
         in ["SanaMS1.5_1600M_P1_D20", "SanaMS1.5_4800M_P1_D60", "SanaSprint_600M_P1_D28", "SanaSprint_1600M_P1_D20"]
         else None
     )
+
+    def handle_mismatched_shapes(key, checkpoint_param, current_shape):
+        new_param = torch.zeros(current_shape, dtype=checkpoint_param.dtype, device=checkpoint_param.device)
+
+        if "inverted_conv.conv.weight" in key or "inverted_conv.conv.bias" in key or "depth_conv.conv.bias" in key:
+            num_old_channels = checkpoint_param.shape[0] // 2
+            num_new_channels = current_shape[0] // 2
+            new_param[:num_old_channels] = checkpoint_param[:num_old_channels]
+            new_param[num_new_channels : num_new_channels + num_old_channels] = checkpoint_param[num_old_channels:]
+        elif "depth_conv.conv.weight" in key:
+            assert checkpoint_param.shape[1] == 1
+            num_old_channels = checkpoint_param.shape[0] // 2
+            num_new_channels = current_shape[0] // 2
+            new_param[:num_old_channels] = checkpoint_param[:num_old_channels]
+            new_param[num_new_channels : num_new_channels + num_old_channels] = checkpoint_param[num_old_channels:]
+        elif "point_conv.conv.weight" in key:
+            new_param[:, : checkpoint_param.shape[1]] = checkpoint_param
+        else:
+            raise KeyError(f"Unhandled key with mismatched shapes: {key}")
+
+        return new_param
 
     for depth in range(layer_num):
         # Transformer blocks.
@@ -165,21 +209,60 @@ def main(args):
         )
 
         # Feed-forward.
-        converted_state_dict[f"transformer_blocks.{depth}.ff.conv_inverted.weight"] = state_dict.pop(
-            f"blocks.{depth}.mlp.inverted_conv.conv.weight"
-        )
-        converted_state_dict[f"transformer_blocks.{depth}.ff.conv_inverted.bias"] = state_dict.pop(
-            f"blocks.{depth}.mlp.inverted_conv.conv.bias"
-        )
-        converted_state_dict[f"transformer_blocks.{depth}.ff.conv_depth.weight"] = state_dict.pop(
-            f"blocks.{depth}.mlp.depth_conv.conv.weight"
-        )
-        converted_state_dict[f"transformer_blocks.{depth}.ff.conv_depth.bias"] = state_dict.pop(
-            f"blocks.{depth}.mlp.depth_conv.conv.bias"
-        )
-        converted_state_dict[f"transformer_blocks.{depth}.ff.conv_point.weight"] = state_dict.pop(
-            f"blocks.{depth}.mlp.point_conv.conv.weight"
-        )
+        ff_inverted_key = f"blocks.{depth}.mlp.inverted_conv.conv.weight"
+        ff_inverted_param = state_dict.pop(ff_inverted_key)
+        ff_inverted_target_key = f"transformer_blocks.{depth}.ff.conv_inverted.weight"
+
+        if inverted_conv_shape == ff_inverted_param.shape:
+            converted_state_dict[ff_inverted_target_key] = ff_inverted_param
+        else:
+            converted_state_dict[ff_inverted_target_key] = handle_mismatched_shapes(
+                ff_inverted_key, ff_inverted_param, inverted_conv_shape
+            )
+
+        ff_inverted_bias_key = f"blocks.{depth}.mlp.inverted_conv.conv.bias"
+        ff_inverted_bias_param = state_dict.pop(ff_inverted_bias_key)
+        ff_inverted_bias_target_key = f"transformer_blocks.{depth}.ff.conv_inverted.bias"
+
+        if inverted_bias_shape == ff_inverted_bias_param.shape:
+            converted_state_dict[ff_inverted_bias_target_key] = ff_inverted_bias_param
+        else:
+            converted_state_dict[ff_inverted_bias_target_key] = handle_mismatched_shapes(
+                ff_inverted_bias_key, ff_inverted_bias_param, inverted_bias_shape
+            )
+
+        ff_depth_key = f"blocks.{depth}.mlp.depth_conv.conv.weight"
+        ff_depth_param = state_dict.pop(ff_depth_key)
+        ff_depth_target_key = f"transformer_blocks.{depth}.ff.conv_depth.weight"
+
+        if depth_conv_shape == ff_depth_param.shape:
+            converted_state_dict[ff_depth_target_key] = ff_depth_param
+        else:
+            converted_state_dict[ff_depth_target_key] = handle_mismatched_shapes(
+                ff_depth_key, ff_depth_param, depth_conv_shape
+            )
+
+        ff_depth_bias_key = f"blocks.{depth}.mlp.depth_conv.conv.bias"
+        ff_depth_bias_param = state_dict.pop(ff_depth_bias_key)
+        ff_depth_bias_target_key = f"transformer_blocks.{depth}.ff.conv_depth.bias"
+
+        if depth_bias_shape == ff_depth_bias_param.shape:
+            converted_state_dict[ff_depth_bias_target_key] = ff_depth_bias_param
+        else:
+            converted_state_dict[ff_depth_bias_target_key] = handle_mismatched_shapes(
+                ff_depth_bias_key, ff_depth_bias_param, depth_bias_shape
+            )
+
+        ff_point_key = f"blocks.{depth}.mlp.point_conv.conv.weight"
+        ff_point_param = state_dict.pop(ff_point_key)
+        ff_point_target_key = f"transformer_blocks.{depth}.ff.conv_point.weight"
+
+        if point_conv_shape == ff_point_param.shape:
+            converted_state_dict[ff_point_target_key] = ff_point_param
+        else:
+            converted_state_dict[ff_point_target_key] = handle_mismatched_shapes(
+                ff_point_key, ff_point_param, point_conv_shape
+            )
 
         # Cross-attention.
         q = state_dict.pop(f"blocks.{depth}.cross_attn.q_linear.weight")
@@ -226,7 +309,7 @@ def main(args):
             "cross_attention_head_dim": model_kwargs[args.model_type]["cross_attention_head_dim"],
             "cross_attention_dim": model_kwargs[args.model_type]["cross_attention_dim"],
             "caption_channels": 2304,
-            "mlp_ratio": 2.5,
+            "mlp_ratio": mlp_ratio,
             "attention_bias": False,
             "sample_size": args.image_size // 32,
             "patch_size": 1,
@@ -347,7 +430,6 @@ DTYPE_MAPPING = {
     "fp16": torch.float16,
     "bf16": torch.bfloat16,
 }
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -159,17 +159,11 @@ def get_args():
     parser.add_argument(
         "--model_path",
         nargs="?",
-        default="hf://Efficient-Large-Model/SANA_Sprint_1.6B_1024px/checkpoints/SANA_Sprint_1.6B_1024px.pth",
+        default="hf://Efficient-Large-Model/Sana_Sprint_1.6B_1024px/checkpoints/Sana_Sprint_1.6B_1024px.pth",
         type=str,
         help="Path to the model file (positional)",
     )
-    parser.add_argument("--output", default="./", type=str)
-    parser.add_argument("--bs", default=1, type=int)
     parser.add_argument("--image_size", default=1024, type=int)
-    parser.add_argument("--cfg_scale", default=3.0, type=float)
-    parser.add_argument("--seed", default=42, type=int)
-    parser.add_argument("--step", default=-1, type=int)
-    parser.add_argument("--custom_image_size", default=None, type=int)
     parser.add_argument("--share", action="store_true")
     parser.add_argument(
         "--shield_model_path",
@@ -184,7 +178,6 @@ def get_args():
 args = get_args()
 
 if torch.cuda.is_available():
-    weight_dtype = torch.float16
     model_path = args.model_path
     pipe = SanaSprintPipeline(args.config)
     pipe.from_pretrained(model_path)
@@ -300,7 +293,7 @@ def generate(
     )
 
 
-model_size = "1.6" if "1600M" in args.model_path else "0.6"
+model_size = "1.6" if "1.6B" in args.model_path else "0.6"
 title = f"""
     <div style='display: flex; align-items: center; justify-content: center; text-align: center;'>
         <img src="https://nvlabs.github.io/Sana/Sprint/asset/SANA-Sprint.png" width="50%" alt="logo"/>
@@ -309,7 +302,7 @@ title = f"""
 DESCRIPTION = f"""
         <p><span style="font-size: 36px; font-weight: bold;">SANA-Sprint-{model_size}B</span><span style="font-size: 20px; font-weight: bold;">{args.image_size}px</span></p>
         <p style="font-size: 16px; font-weight: bold;">SANA-Sprint: One-Step Diffusion with Continuous-Time Consistency Distillation</p>
-        <p><span style="font-size: 16px;"><a href="https://arxiv.org/abs/2503.09641">[Paper]</a></span> <span style="font-size: 16px;"><a href="https://github.com/NVlabs/Sana">[Github(coming soon)]</a></span> <span style="font-size: 16px;"><a href="https://nvlabs.github.io/Sana">[Project]</a></span</p>
+        <p><span style="font-size: 16px;"><a href="https://arxiv.org/abs/2503.09641">[Paper]</a></span> <span style="font-size: 16px;"><a href="https://github.com/NVlabs/Sana">[Github]</a></span> <span style="font-size: 16px;"><a href="https://nvlabs.github.io/Sana">[Project]</a></span</p>
         <p style="font-size: 16px; font-weight: bold;">Powered by <a href="https://hanlab.mit.edu/projects/dc-ae">DC-AE</a> with 32x latent space, </p>running on node {socket.gethostname()}.
         <p style="font-size: 16px; font-weight: bold;">Unsafe word will give you a 'Red Heart' in the image instead.</p>
         """
@@ -369,14 +362,14 @@ with gr.Blocks(css=css, title="SANA-Sprint") as demo:
                     minimum=256,
                     maximum=MAX_IMAGE_SIZE,
                     step=32,
-                    value=1024,
+                    value=args.image_size,
                 )
                 width = gr.Slider(
                     label="Width",
                     minimum=256,
                     maximum=MAX_IMAGE_SIZE,
                     step=32,
-                    value=1024,
+                    value=args.image_size,
                 )
                 use_resolution_binning = gr.Checkbox(label="Use resolution binning", value=True)
             with gr.Row():
