@@ -29,9 +29,10 @@ ______________________________________________________________________
 
 ### [SANA-Sprint](https://arxiv.org/pdf/2503.09641)
 
-| Model            | Reso   | pth link                                                                                        | diffusers                                                                                                                                     | Precision | Description    |
-|------------------|--------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|-----------|----------------|
-| Sana-Sprint-1.6B | 1024px | [Sana-Sprint_1.6B_1024px](https://huggingface.co/Efficient-Large-Model/Sana_Sprint_1.6B_1024px) | \[Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers\]((https://huggingface.co/Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers)  | bf16      | Multi-Language |
+| Model            | Reso   | pth link                                                                                        | diffusers                                                                                                                                    | Precision | Description    |
+|------------------|--------|-------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|-----------|----------------|
+| Sana-Sprint-0.6B | 1024px | [Sana-Sprint_0.6B_1024px](https://huggingface.co/Efficient-Large-Model/Sana_Sprint_0.6B_1024px) | \[Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers\]((https://huggingface.co/Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers) | bf16      | Multi-Language |
+| Sana-Sprint-1.6B | 1024px | [Sana-Sprint_1.6B_1024px](https://huggingface.co/Efficient-Large-Model/Sana_Sprint_1.6B_1024px) | \[Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers\]((https://huggingface.co/Efficient-Large-Model/Sana_Sprint_1.6B_1024px_diffusers) | bf16      | Multi-Language |
 
 ______________________________________________________________________
 
@@ -174,4 +175,15 @@ image = pipe(
     generator=torch.Generator().manual_seed(42),
 ).images[0]
 image.save("sana_1600m.png")
+```
+
+## 🔧 5. Convert `.pth` to diffusers `.safetensor`
+
+```bash
+python scripts/convert_sana_to_diffusers.py \
+      --orig_ckpt_path Efficient-Large-Model/Sana_1600M_1024px_BF16/checkpoints/Sana_1600M_1024px_BF16.pth \
+      --model_type SanaMS_1600M_P1_D20 \
+      --dtype bf16 \
+      --dump_path output/Sana_1600M_1024px_BF16_diffusers \
+      --save_full_pipeline
 ```

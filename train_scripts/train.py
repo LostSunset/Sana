@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore")  # ignore warning
 import numpy as np
 import pyrallis
 import torch
-from accelerate import Accelerator, InitProcessGroupKwargs
+from accelerate import Accelerator, InitProcessGroupKwargs, skip_first_batches
 from PIL import Image
 from termcolor import colored
 
@@ -46,7 +46,7 @@ from diffusion.model.utils import get_weight_dtype
 from diffusion.utils.checkpoint import load_checkpoint, save_checkpoint
 from diffusion.utils.config import SanaConfig, model_init_config
 from diffusion.utils.data_sampler import AspectRatioBatchSampler
-from diffusion.utils.dist_utils import dist, flush, get_world_size
+from diffusion.utils.dist_utils import flush, get_world_size
 from diffusion.utils.logger import LogBuffer, get_root_logger
 from diffusion.utils.lr_scheduler import build_lr_scheduler
 from diffusion.utils.misc import DebugUnderflowOverflow, init_random_seed, set_random_seed
@@ -269,13 +269,7 @@ def train(
     skip_step = max(config.train.skip_step, global_step) % train_dataloader_len
     skip_step = skip_step if skip_step < (train_dataloader_len - 20) else 0
     loss_nan_timer = 0
-
-    if config.train.use_fsdp:
-        model_instance = model
-    elif model_ema is not None:
-        model_instance = model_ema
-    else:
-        model_instance = model
+    model_instance.to(accelerator.device)
 
     # Cache Dataset for BatchSampler
     if args.caching and config.model.multi_scale:
@@ -576,8 +570,7 @@ def train(
                     (global_step + train_dataloader_len - 1) // train_dataloader_len
                 ) * train_dataloader_len + 1
                 logger.info("Early stop current iteration")
-                if dist.is_initialized():
-                    dist.destroy_process_group()
+                skip_first_batches(train_dataloader, True)
                 break
 
             data_time_start = time.time()
@@ -629,7 +622,7 @@ def main(cfg: SanaConfig) -> None:
     global train_dataloader_len, start_epoch, start_step, vae, generator, num_replicas, rank, training_start_time
     global load_vae_feat, load_text_feat, validation_noise, text_encoder, tokenizer
     global max_length, validation_prompts, latent_size, valid_prompt_embed_suffix, null_embed_path
-    global image_size, cache_file, total_steps, vae_dtype
+    global image_size, cache_file, total_steps, vae_dtype, model_instance
 
     config = cfg
     args = cfg
@@ -870,6 +863,13 @@ def main(cfg: SanaConfig) -> None:
         )
     )
 
+    if config.train.use_fsdp:
+        model_instance = deepcopy(model)
+    elif model_ema is not None:
+        model_instance = deepcopy(model_ema)
+    else:
+        model_instance = model
+
     # 4-1. load model
     if args.load_from is not None:
         config.model.load_from = args.load_from
@@ -1054,6 +1054,8 @@ def main(cfg: SanaConfig) -> None:
         config.train.use_fsdp
         and config.model.resume_from is not None
         and config.model.resume_from["checkpoint"] is not None
+        and config.model.resume_from["resume_optimizer"]
+        and config.model.resume_from["resume_lr_scheduler"]
     ):
         logger.info(f"FSDP resume: Loading optimizer, scheduler, scaler, random_states...")
         accelerator.load_state(

@@ -10,8 +10,7 @@
   <a href="https://nvlabs.github.io/Sana/"><img src="https://img.shields.io/static/v1?label=Project&message=Github&color=blue&logo=github-pages"></a> &ensp;
   <a href="https://hanlab.mit.edu/projects/sana/"><img src="https://img.shields.io/static/v1?label=Page&message=MIT&color=darkred&logo=github-pages"></a> &ensp;
   <a href="https://arxiv.org/abs/2410.10629"><img src="https://img.shields.io/static/v1?label=Arxiv&message=Sana&color=red&logo=arxiv"></a> &ensp;
-  <a href="https://nv-sana.mit.edu/"><img src="https://img.shields.io/static/v1?label=Demo:5x3090&message=SANA&color=yellow"></a> &ensp;
-  <a href="https://nv-sana.mit.edu/sprint/"><img src="https://img.shields.io/static/v1?label=Demo:1x3090&message=SANA-Sprint&color=yellow"></a> &ensp;
+  <a href="https://nv-sana.mit.edu/"><img src="https://img.shields.io/static/v1?label=Demo:6x3090&message=MIT&color=yellow"></a> &ensp;
   <a href="https://nv-sana.mit.edu/4bit/"><img src="https://img.shields.io/static/v1?label=Demo:1x3090&message=4bit&color=yellow"></a> &ensp;
   <a href="https://nv-sana.mit.edu/ctrlnet/"><img src="https://img.shields.io/static/v1?label=Demo:1x3090&message=ControlNet&color=yellow"></a> &ensp;
   <a href="https://replicate.com/chenxwh/sana"><img src="https://img.shields.io/static/v1?label=API:H100&message=Replicate&color=pink"></a> &ensp;
@@ -184,7 +183,7 @@ DEMO_PORT=15432 \
 python app/app_sana.py \
     --share \
     --config=configs/sana_config/1024ms/Sana_1600M_img1024.yaml \
-    --model_path=hf://Efficient-Large-Model/Sana_1600M_1024px/checkpoints/Sana_1600M_1024px.pth \
+    --model_path=hf://Efficient-Large-Model/Sana_1600M_1024px_BF16/checkpoints/Sana_1600M_1024px_BF16.pth \
     --image_size=1024
 ```
 
@@ -486,6 +485,14 @@ We will try our best to achieve
 - [ComfyUI_ExtraModels](https://github.com/city96/ComfyUI_ExtraModels)
 - [SVDQuant and Nunchaku](https://github.com/mit-han-lab/nunchaku)
 - [diffusers](https://github.com/huggingface/diffusers)
+
+## Contribution
+
+Thanks goes to these wonderful contributors:
+
+<a href="https://github.com/NVlabs/Sana/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=NVlabs/Sana" />
+</a>
 
 ## 🌟 Star History
 
